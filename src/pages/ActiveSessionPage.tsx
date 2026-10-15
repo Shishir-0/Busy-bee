@@ -14,6 +14,8 @@ import {
   Zap,
   CheckCircle2,
   AlertOctagon,
+  Radio,
+  Store,
 } from 'lucide-react';
 import { ActiveTab } from '../components/common/Navigation';
 
@@ -26,6 +28,7 @@ interface ActiveSessionPageProps {
 
 export const ActiveSessionPage: React.FC<ActiveSessionPageProps> = ({ onNavigate }) => {
   const {
+    mode,
     activeMandate,
     mandates,
     activeSession,
@@ -37,7 +40,11 @@ export const ActiveSessionPage: React.FC<ActiveSessionPageProps> = ({ onNavigate
     transcriptTurns,
   } = useNegotiation();
 
-  const [sessionSeconds, setSessionSeconds] = useState<number>(145);
+  const currentMandate = activeMandate || (mandates.length > 0 ? mandates[0] : null);
+  const currentSession = activeSession || (sessions.length > 0 ? sessions[0] : null);
+  const currentOffer = offers.find((o) => o.sessionId === currentSession?.id) || (offers.length > 0 ? offers[0] : null);
+
+  const [sessionSeconds, setSessionSeconds] = useState<number>(0);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [activeSpeaker, setActiveSpeaker] = useState<'agent' | 'merchant' | 'idle'>('idle');
   const [customSpeech, setCustomSpeech] = useState<string>('');
@@ -45,48 +52,51 @@ export const ActiveSessionPage: React.FC<ActiveSessionPageProps> = ({ onNavigate
   const [customValue, setCustomValue] = useState<string>('₹2,800 / unit');
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
   const [connectionNotice, setConnectionNotice] = useState<string | null>(null);
+  const [isLiveConfigured, setIsLiveConfigured] = useState<boolean>(false);
 
-  // Session timer
+  // Initialize session timer based on actual session timestamp
   useEffect(() => {
-    const timer = setInterval(() => {
-      setSessionSeconds((prev) => prev + 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+    if (!currentSession?.startedAt) {
+      setSessionSeconds(0);
+      return;
+    }
+    const start = new Date(currentSession.startedAt).getTime();
+    if (isNaN(start)) {
+      setSessionSeconds(0);
+      return;
+    }
+    const end = currentSession.endedAt ? new Date(currentSession.endedAt).getTime() : Date.now();
+    setSessionSeconds(Math.max(0, Math.floor((end - start) / 1000)));
 
-  const currentMandate = activeMandate || mandates[0] || {
-    id: 'placeholder-mandate',
-    title: 'Standard Procurement Mandate',
-    category: 'Commercial Procurement',
-    targetUnitCount: 50,
-    targetUnitPrice: 2600,
-    maxUnitPrice: 3000,
-    maxBudget: 150000,
-    maxDeliveryDays: 14,
-    shippingIncludedRequired: true,
-    warrantyMonthsRequired: 12,
-    status: 'active' as const,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-  const currentSession = activeSession || sessions[0];
-  const currentOffer = offers.find((o) => o.sessionId === currentSession?.id) || offers[0];
+    if (currentSession.status === 'active') {
+      const timer = setInterval(() => {
+        setSessionSeconds((prev) => prev + 1);
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [currentSession?.id, currentSession?.startedAt, currentSession?.status, currentSession?.endedAt]);
 
   // Initialize WebRTC Voice Connection
   useEffect(() => {
-    if (!currentSession?.id) return;
+    if (!currentSession?.id || currentSession.status === 'ended') {
+      setConnectionStatus('disconnected');
+      return;
+    }
     let isCancelled = false;
 
     async function initVoiceChannel() {
       try {
         setConnectionStatus('connecting');
-        const tokenRes = await apiClient.getRoomToken(currentSession.id, 'buyer-web-user');
+        const tokenRes = await apiClient.getRoomToken(currentSession!.id, 'buyer-web-user');
         if (isCancelled) return;
+
+        const liveConfigured = Boolean((tokenRes as any).isLiveConfigured);
+        setIsLiveConfigured(liveConfigured);
 
         await livekitVoiceService.connect({
           url: tokenRes.url,
           token: tokenRes.token,
-          isLiveConfigured: (tokenRes as any).isLiveConfigured,
+          isLiveConfigured: liveConfigured,
           onActiveSpeakerChange: (spk) => {
             if (!isCancelled) setActiveSpeaker(spk);
           },
@@ -116,7 +126,7 @@ export const ActiveSessionPage: React.FC<ActiveSessionPageProps> = ({ onNavigate
       isCancelled = true;
       livekitVoiceService.disconnect();
     };
-  }, [currentSession?.id]);
+  }, [currentSession?.id, currentSession?.status]);
 
   const handleToggleMute = () => {
     const next = !isMuted;
@@ -183,28 +193,84 @@ export const ActiveSessionPage: React.FC<ActiveSessionPageProps> = ({ onNavigate
     setTimeout(() => setActiveSpeaker('idle'), 2000);
   };
 
+  if (!currentMandate) {
+    return (
+      <div className="bg-white rounded-xl border border-canvas-border shadow-xs p-12 text-center max-w-xl mx-auto my-12 space-y-4">
+        <div className="w-16 h-16 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center mx-auto">
+          <Radio className="w-8 h-8 text-slate-400" />
+        </div>
+        <h2 className="text-lg font-bold text-ink-primary">NO ACTIVE NEGOTIATION MANDATE</h2>
+        <p className="text-xs text-ink-muted leading-relaxed">
+          There are no procurement mandates found in the database. Please create a mandate to define commercial boundaries and start supplier negotiations.
+        </p>
+        <button
+          onClick={() => onNavigate('new-mandate')}
+          className="mt-4 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-semibold shadow-xs"
+        >
+          Create New Mandate
+        </button>
+      </div>
+    );
+  }
+
+  if (!currentSession) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white rounded-xl border border-canvas-border shadow-xs p-12 text-center max-w-xl mx-auto my-12 space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center mx-auto">
+            <Radio className="w-8 h-8 text-slate-400" />
+          </div>
+          <h2 className="text-lg font-bold text-ink-primary">NO ACTIVE NEGOTIATION SESSION</h2>
+          <p className="text-xs text-ink-muted leading-relaxed">
+            There is currently no active merchant session for mandate "{currentMandate.title}".
+            You can launch a supplier session from the Merchant Browser or switch to Simulation / Demo Data to review sample negotiations.
+          </p>
+          <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={() => onNavigate('merchant')}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-semibold shadow-xs"
+            >
+              <Store className="w-4 h-4" />
+              <span>Open Merchant Browser</span>
+            </button>
+            <button
+              onClick={() => onNavigate('command-centre')}
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-md text-xs font-medium border border-slate-200"
+            >
+              Back to Command Centre
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const isSessionActive = currentSession.status === 'active';
+
   return (
     <div className="space-y-6">
       {/* Session Top Bar: Connection Lifecycle & Session Meta */}
       <div className="bg-white rounded-xl border border-canvas-border shadow-xs p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
-            <span className="text-xs font-mono font-semibold text-emerald-800 uppercase tracking-wider">
-              WebRTC Audio Session • Live Channel
+            <span className={`w-2.5 h-2.5 rounded-full ${isSessionActive ? 'bg-emerald-500 animate-ping' : 'bg-slate-400'}`} />
+            <span className="text-xs font-mono font-semibold text-ink-secondary uppercase tracking-wider">
+              {isSessionActive
+                ? (mode === 'live' ? 'Live Session • Active' : 'Simulation Session • Active')
+                : 'Concluded Session • Historical Record'}
             </span>
-            <StatusBadge status="active" />
+            <StatusBadge status={currentSession.status} />
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-lg font-bold text-ink-primary">
-              {currentSession?.merchantName || 'Live Merchant Session'}
+              {currentSession.merchantName}
             </h1>
             <span className="text-xs text-ink-muted">
-              Rep: {currentSession?.merchantRepName || 'Sales Desk'}
+              Rep: {currentSession.merchantRepName || 'Sales Representative'}
             </span>
             <span className="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-600 border border-slate-200">
-              Room: {currentSession?.roomId}
+              Room: {currentSession.roomId}
             </span>
           </div>
         </div>
@@ -218,7 +284,7 @@ export const ActiveSessionPage: React.FC<ActiveSessionPageProps> = ({ onNavigate
 
           {sessions.length > 1 && (
             <select
-              value={currentSession?.id}
+              value={currentSession.id}
               onChange={(e) => {
                 const s = sessions.find((x) => x.id === e.target.value);
                 if (s) setActiveSession(s);
@@ -235,10 +301,10 @@ export const ActiveSessionPage: React.FC<ActiveSessionPageProps> = ({ onNavigate
 
           <button
             onClick={() => onNavigate('command-centre')}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-md text-xs font-semibold transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-md text-xs font-semibold transition-colors"
           >
             <PhoneOff className="w-3.5 h-3.5" />
-            <span>End Session</span>
+            <span>Leave Session</span>
           </button>
         </div>
       </div>
@@ -251,7 +317,7 @@ export const ActiveSessionPage: React.FC<ActiveSessionPageProps> = ({ onNavigate
             AI Disclosure & Transcript Capture Notice (Consent Verified)
           </div>
           <p className="text-[11px] leading-relaxed">
-            The external merchant participant is informed that they are speaking with an autonomous AI procurement agent. Spoken terms are recorded, verified against audio timestamps, and stored as tamper-evident procurement records in MongoDB.
+            The external merchant participant is informed that they are speaking with an autonomous AI procurement agent. Spoken terms are recorded, verified against audio timestamps, and stored as tamper-evident procurement records.
           </p>
         </div>
       </div>
@@ -278,7 +344,9 @@ export const ActiveSessionPage: React.FC<ActiveSessionPageProps> = ({ onNavigate
             isMuted={isMuted}
             onToggleMute={handleToggleMute}
             activeSpeaker={activeSpeaker}
-            isConnected={connectionStatus === 'connected' || connectionStatus === 'connecting'}
+            isConnected={connectionStatus === 'connected'}
+            isLiveVoice={isLiveConfigured}
+            connectionNotice={connectionNotice}
           />
 
           {/* Chronological Transcript Component */}
@@ -287,13 +355,13 @@ export const ActiveSessionPage: React.FC<ActiveSessionPageProps> = ({ onNavigate
             onViewEvidence={() => onNavigate('evidence')}
           />
 
-          {/* Interactive Simulation & Test Panel (For Hackathon Judges) */}
+          {/* Interactive Simulation & Test Panel (Only in Simulation Mode or explicitly labeled for tests) */}
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3 text-xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <Zap className="w-4 h-4 text-amber-600" />
                 <span className="font-semibold text-ink-primary uppercase tracking-wider text-[11px]">
-                  Interactive Audio Turn Simulator (Judge / Demo Mode)
+                  {mode === 'simulation' ? 'Interactive Turn Simulator (Judge / Demo Mode)' : 'Manual Turn Injection (Evaluator Testing Tool)'}
                 </span>
               </div>
               <span className="text-[10px] font-mono text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
@@ -309,7 +377,7 @@ export const ActiveSessionPage: React.FC<ActiveSessionPageProps> = ({ onNavigate
               >
                 <div className="font-semibold text-emerald-800 flex items-center gap-1">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  Simulate Valid Spoken Quote
+                  Inject Compliant Quote
                 </div>
                 <p className="text-[11px] text-ink-muted">
                   Merchant quotes ₹2,800/unit and ₹2,500 shipping (within budget).
@@ -323,7 +391,7 @@ export const ActiveSessionPage: React.FC<ActiveSessionPageProps> = ({ onNavigate
               >
                 <div className="font-semibold text-rose-800 flex items-center gap-1">
                   <AlertOctagon className="w-3.5 h-3.5 text-rose-600" />
-                  Simulate Over-Budget Violation
+                  Inject Over-Budget Quote
                 </div>
                 <p className="text-[11px] text-ink-muted">
                   Merchant demands ₹3,300/unit (Guard rejects and counters).
@@ -349,13 +417,13 @@ export const ActiveSessionPage: React.FC<ActiveSessionPageProps> = ({ onNavigate
                   className="p-1.5 text-xs bg-white border border-slate-300 rounded"
                 />
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="Type simulated merchant statement..."
+                  placeholder="Type merchant utterance to evaluate against Negotiation Guard..."
                   value={customSpeech}
                   onChange={(e) => setCustomSpeech(e.target.value)}
-                  className="flex-1 p-2 text-xs bg-white border border-slate-300 rounded focus:ring-1 focus:ring-procure-600"
+                  className="flex-1 p-2 text-xs bg-white border border-slate-300 rounded"
                 />
                 <button
                   type="submit"
@@ -379,12 +447,16 @@ export const ActiveSessionPage: React.FC<ActiveSessionPageProps> = ({ onNavigate
           />
 
           {/* Current Extracted Terms Summary */}
-          {currentOffer && (
+          {currentOffer ? (
             <ExtractedTermsSummary
               terms={currentOffer.terms}
               status={currentOffer.status}
               merchantName={currentOffer.merchantName}
             />
+          ) : (
+            <div className="bg-white rounded-lg border border-canvas-border shadow-xs p-6 text-center text-xs text-ink-muted">
+              No commercial terms extracted for this session yet.
+            </div>
           )}
         </div>
       </div>

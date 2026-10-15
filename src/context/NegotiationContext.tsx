@@ -14,7 +14,7 @@ interface NegotiationContextType {
   mode: DataSourceMode;
   setMode: (mode: DataSourceMode) => void;
   activeMandate: NegotiationMandate | null;
-  setActiveMandate: (mandate: NegotiationMandate) => void;
+  setActiveMandate: (mandate: NegotiationMandate | null) => void;
   mandates: NegotiationMandate[];
   sessions: MerchantSession[];
   offers: MerchantOffer[];
@@ -70,18 +70,52 @@ export const NegotiationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     try {
       const list = await apiClient.listNegotiations();
       setMandates(list);
-      if (list.length > 0 && !activeMandate) {
-        setActiveMandate(list[0]);
+      if (list.length > 0) {
+        // Keep active mandate if it still exists in the fetched list, otherwise pick first
+        setActiveMandate((prev) => {
+          if (prev && list.some((m) => m.id === prev.id)) {
+            return prev;
+          }
+          return list[0];
+        });
+      } else {
+        // Honest empty state when no negotiations exist in the backend
+        setActiveMandate(null);
+        setSessions([]);
+        setOffers([]);
+        setEvidence([]);
+        setViolations([]);
+        setRecommendation(null);
+        setActiveSession(null);
+        setTranscriptTurns([]);
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to load negotiations');
+      setError(err.message || 'Failed to load negotiations from backend API');
+      // Do NOT silently fall back to mock data
+      setActiveMandate(null);
+      setSessions([]);
+      setOffers([]);
+      setEvidence([]);
+      setViolations([]);
+      setRecommendation(null);
+      setActiveSession(null);
+      setTranscriptTurns([]);
     } finally {
       setIsLoading(false);
     }
-  }, [activeMandate]);
+  }, []);
 
   const refreshData = useCallback(async () => {
-    if (!activeMandate) return;
+    if (!activeMandate) {
+      setSessions([]);
+      setOffers([]);
+      setEvidence([]);
+      setViolations([]);
+      setRecommendation(null);
+      setActiveSession(null);
+      setTranscriptTurns([]);
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {
@@ -99,10 +133,16 @@ export const NegotiationProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setViolations(vioList);
       setRecommendation(rec);
 
-      if (sessList.length > 0 && !activeSession) {
-        const active = sessList.find((s) => s.status === 'active') || sessList[0];
-        setActiveSession(active);
-        setTranscriptTurns(apiClient.getTranscriptTurns(active.id));
+      if (sessList.length > 0) {
+        // Select currently active session or first session
+        const currentSelected = activeSession && sessList.some((s) => s.id === activeSession.id)
+          ? sessList.find((s) => s.id === activeSession.id)!
+          : sessList.find((s) => s.status === 'active') || sessList[0];
+        setActiveSession(currentSelected);
+        setTranscriptTurns(apiClient.getTranscriptTurns(currentSelected.id));
+      } else {
+        setActiveSession(null);
+        setTranscriptTurns([]);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to refresh negotiation details');
@@ -120,6 +160,41 @@ export const NegotiationProvider: React.FC<{ children: React.ReactNode }> = ({ c
       refreshData();
     }
   }, [activeMandate, refreshData]);
+
+  // Real-time Server-Sent Events (SSE) synchronization for live mode
+  useEffect(() => {
+    if (mode !== 'live' || !activeMandate?.id) return;
+
+    let eventSource: EventSource | null = null;
+    try {
+      eventSource = new EventSource(`/api/negotiations/${activeMandate.id}/events`);
+      eventSource.onmessage = (event) => {
+        try {
+          const parsed = JSON.parse(event.data);
+          if (parsed.type === 'transcript.turn' && parsed.payload) {
+            setTranscriptTurns((prev) => [...prev, parsed.payload]);
+          } else if (
+            parsed.type === 'evidence.recorded' ||
+            parsed.type === 'offer.revised' ||
+            parsed.type === 'merchant.confirmed' ||
+            parsed.type === 'session.started'
+          ) {
+            refreshData();
+          }
+        } catch {
+          // ignore non-json events
+        }
+      };
+    } catch {
+      // EventSource fallback
+    }
+
+    return () => {
+      if (eventSource) {
+        eventSource.close();
+      }
+    };
+  }, [mode, activeMandate?.id, refreshData]);
 
   const createNegotiation = async (
     payload: Omit<NegotiationMandate, 'id' | 'status' | 'createdAt' | 'updatedAt'>
@@ -186,6 +261,7 @@ export const NegotiationProvider: React.FC<{ children: React.ReactNode }> = ({ c
       extractedEvidenceId: evidenceId,
     };
 
+    apiClient.addLiveTranscriptTurn(activeSession.id, newTurn);
     setTranscriptTurns((prev) => [...prev, newTurn]);
   };
 

@@ -170,37 +170,44 @@ export const CommandCentrePage: React.FC<CommandCentrePageProps> = ({ onNavigate
             </div>
 
             <div className="divide-y divide-slate-100 text-xs">
-              {offers.map((offer) => (
-                <div
-                  key={offer.id}
-                  className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/60 transition-colors"
-                >
-                  <div className="space-y-0.5">
-                    <div className="font-semibold text-ink-primary text-sm flex items-center gap-2">
-                      <span>{offer.merchantName}</span>
-                      <StatusBadge status={offer.status} />
-                    </div>
-                    <div className="text-[11px] text-ink-muted">
-                      {offer.terms.unitPrice ? `${formatCurrency(offer.terms.unitPrice)}/unit • ` : ''}
-                      {offer.terms.deliveryDays ? `${offer.terms.deliveryDays}d delivery • ` : ''}
-                      {offer.terms.warrantyMonths ? `${offer.terms.warrantyMonths}m warranty` : ''}
-                    </div>
-                  </div>
-
-                  <div className="text-left sm:text-right">
-                    <div className="text-xs font-mono font-bold text-ink-primary">
-                      {offer.terms.totalLandedCost !== null
-                        ? formatCurrency(offer.terms.totalLandedCost)
-                        : 'Landed Cost Incomplete'}
-                    </div>
-                    <div className="text-[10px] text-slate-500 font-mono">
-                      {offer.terms.shippingCost !== null
-                        ? `Freight: ${formatCurrency(offer.terms.shippingCost)}`
-                        : 'Shipping: Unknown'}
-                    </div>
-                  </div>
+              {offers.length === 0 ? (
+                <div className="p-8 text-center text-xs text-ink-muted space-y-1">
+                  <div className="font-medium text-ink-primary">No Merchant Offers Recorded Yet</div>
+                  <p className="text-[11px]">Start a negotiation session to receive, extract, and compare merchant offers.</p>
                 </div>
-              ))}
+              ) : (
+                offers.map((offer) => (
+                  <div
+                    key={offer.id}
+                    className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/60 transition-colors"
+                  >
+                    <div className="space-y-0.5">
+                      <div className="font-semibold text-ink-primary text-sm flex items-center gap-2">
+                        <span>{offer.merchantName}</span>
+                        <StatusBadge status={offer.status} />
+                      </div>
+                      <div className="text-[11px] text-ink-muted">
+                        {offer.terms.unitPrice ? `${formatCurrency(offer.terms.unitPrice)}/unit • ` : ''}
+                        {offer.terms.deliveryDays ? `${offer.terms.deliveryDays}d delivery • ` : ''}
+                        {offer.terms.warrantyMonths ? `${offer.terms.warrantyMonths}m warranty` : ''}
+                      </div>
+                    </div>
+
+                    <div className="text-left sm:text-right">
+                      <div className="text-xs font-mono font-bold text-ink-primary">
+                        {offer.terms.totalLandedCost !== null
+                          ? formatCurrency(offer.terms.totalLandedCost)
+                          : 'Landed Cost Incomplete'}
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-mono">
+                        {offer.terms.shippingCost !== null
+                          ? `Freight: ${formatCurrency(offer.terms.shippingCost)}`
+                          : 'Shipping: Unknown'}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -223,24 +230,31 @@ export const CommandCentrePage: React.FC<CommandCentrePageProps> = ({ onNavigate
             </div>
 
             <div className="divide-y divide-slate-100 text-xs">
-              {recentEvidence.map((ev) => (
-                <div key={ev.id} className="p-4 space-y-1.5 hover:bg-slate-50/60 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-ink-primary">{ev.extractedField}:</span>
-                      <span className="font-mono font-bold text-emerald-800">{ev.extractedValue}</span>
-                    </div>
-                    <StatusBadge status={ev.verificationStatus} />
-                  </div>
-                  <p className="font-mono text-[11px] text-ink-muted bg-slate-50 p-2 rounded border border-slate-200/80">
-                    "{ev.transcriptExcerpt}"
-                  </p>
-                  <div className="flex items-center justify-between text-[10px] text-slate-500 pt-0.5">
-                    <span>Speaker: {ev.speakerLabel}</span>
-                    <span className="font-mono">Turn: {ev.sourceTurnId} • {formatTime(ev.timestamp)}</span>
-                  </div>
+              {recentEvidence.length === 0 ? (
+                <div className="p-8 text-center text-xs text-ink-muted space-y-1">
+                  <div className="font-medium text-ink-primary">No Evidence Recorded Yet</div>
+                  <p className="text-[11px]">Verbatim spoken quotes and extracted terms will stream here during sessions.</p>
                 </div>
-              ))}
+              ) : (
+                recentEvidence.map((ev) => (
+                  <div key={ev.id} className="p-4 space-y-1.5 hover:bg-slate-50/60 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-ink-primary">{ev.extractedField}:</span>
+                        <span className="font-mono font-bold text-emerald-800">{ev.extractedValue}</span>
+                      </div>
+                      <StatusBadge status={ev.verificationStatus} />
+                    </div>
+                    <p className="font-mono text-[11px] text-ink-muted bg-slate-50 p-2 rounded border border-slate-200/80">
+                      "{ev.transcriptExcerpt}"
+                    </p>
+                    <div className="flex items-center justify-between text-[10px] text-slate-500 pt-0.5">
+                      <span>Speaker: {ev.speakerLabel}</span>
+                      <span className="font-mono">Turn: {ev.sourceTurnId} • {formatTime(ev.timestamp)}</span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -248,7 +262,7 @@ export const CommandCentrePage: React.FC<CommandCentrePageProps> = ({ onNavigate
         {/* Right Column: Recommendation & Session Status */}
         <div className="space-y-6">
           {/* Decision Summary Card */}
-          {recommendation && (
+          {recommendation ? (
             <div className="bg-white rounded-xl border border-emerald-300 shadow-xs p-5 space-y-3 ring-1 ring-emerald-100">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1">
@@ -285,6 +299,16 @@ export const CommandCentrePage: React.FC<CommandCentrePageProps> = ({ onNavigate
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
+          ) : (
+            <div className="bg-white rounded-xl border border-canvas-border shadow-xs p-5 space-y-2 text-center text-xs text-ink-muted">
+              <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                <Award className="w-4 h-4" />
+              </div>
+              <div className="font-semibold text-ink-primary text-xs">No Recommendation Generated</div>
+              <p className="text-[11px] leading-relaxed">
+                The Deal Decision Engine ranks offers and generates verifiable recommendations once sessions conclude.
+              </p>
+            </div>
           )}
 
           {/* Active Session Status Card */}
@@ -317,7 +341,16 @@ export const CommandCentrePage: React.FC<CommandCentrePageProps> = ({ onNavigate
                 </button>
               </div>
             ) : (
-              <p className="text-xs text-ink-muted">No merchant session active.</p>
+              <div className="py-4 text-center space-y-3">
+                <p className="text-xs text-ink-muted">No active negotiation session in progress.</p>
+                <button
+                  onClick={() => onNavigate('session')}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-semibold shadow-xs inline-flex items-center gap-1.5 transition-colors"
+                >
+                  <Radio className="w-3.5 h-3.5" />
+                  <span>Start New Session</span>
+                </button>
+              </div>
             )}
           </div>
         </div>

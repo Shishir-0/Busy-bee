@@ -1,6 +1,6 @@
 /**
  * The Negotiator • Central API Client
- * Supports both Live Express/MongoDB backend and Deterministic Simulation Provider
+ * Supports both Live Express/MongoDB backend (default) and explicitly labeled Simulation Provider
  */
 
 import {
@@ -28,9 +28,10 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 export type DataSourceMode = 'simulation' | 'live';
 
 class NegotiationApiClient {
-  private mode: DataSourceMode = 'simulation';
+  // Default to LIVE backend API and database records
+  private mode: DataSourceMode = 'live';
 
-  // In-memory simulation state
+  // In-memory simulation fixtures (ONLY active when explicitly set to 'simulation')
   private simMandates: NegotiationMandate[] = [INITIAL_MANDATE];
   private simSessions: MerchantSession[] = [...INITIAL_SESSIONS];
   private simOffers: MerchantOffer[] = [...INITIAL_OFFERS];
@@ -42,6 +43,9 @@ class NegotiationApiClient {
   private simTranscripts: Record<string, TranscriptTurn[]> = {
     'sess-sterling-02': SAMPLE_TRANSCRIPT_TURNS,
   };
+
+  // Real live session in-memory transcript store (starts empty; populated only by real turns)
+  private liveTranscripts: Record<string, TranscriptTurn[]> = {};
 
   public getMode(): DataSourceMode {
     return this.mode;
@@ -59,7 +63,29 @@ class NegotiationApiClient {
     }
     const res = await fetch(`${API_BASE_URL}/negotiations`);
     if (!res.ok) throw new Error(`Failed to fetch negotiations: ${res.statusText}`);
-    return res.json();
+    const rawList = await res.json();
+    return rawList.map((m: any) => ({
+      id: m.id,
+      title: m.title || m.objective || 'Procurement Mandate',
+      objective: m.objective,
+      quantity: m.quantity,
+      currency: m.currency || 'INR',
+      maxBudget: m.maxBudget,
+      deliveryDeadlineDays: m.deliveryDeadlineDays,
+      minWarrantyMonths: m.minWarrantyMonths,
+      mandatorySpecs: m.mandatorySpecifications || m.mandatorySpecs || [],
+      authority: m.authority || {
+        targetUnitPrice: m.counterOfferPolicy?.targetUnitPrice || Math.round(m.maxBudget / m.quantity),
+        maxUnitPrice: m.counterOfferPolicy?.maxUnitConcession ? m.counterOfferPolicy.maxUnitConcession : Math.round(m.maxBudget / m.quantity),
+        strictBudgetCap: true,
+        maxDeliveryDays: m.deliveryDeadlineDays,
+        minWarrantyMonths: m.minWarrantyMonths,
+        permittedConcessions: [],
+      },
+      status: m.status || 'mandate_active',
+      createdAt: m.createdAt,
+      updatedAt: m.updatedAt,
+    }));
   }
 
   async getNegotiation(id: string): Promise<NegotiationMandate> {
@@ -70,7 +96,29 @@ class NegotiationApiClient {
     }
     const res = await fetch(`${API_BASE_URL}/negotiations/${id}`);
     if (!res.ok) throw new Error(`Failed to fetch negotiation ${id}: ${res.statusText}`);
-    return res.json();
+    const m = await res.json();
+    return {
+      id: m.id,
+      title: m.title || m.objective || 'Procurement Mandate',
+      objective: m.objective,
+      quantity: m.quantity,
+      currency: m.currency || 'INR',
+      maxBudget: m.maxBudget,
+      deliveryDeadlineDays: m.deliveryDeadlineDays,
+      minWarrantyMonths: m.minWarrantyMonths,
+      mandatorySpecs: m.mandatorySpecifications || m.mandatorySpecs || [],
+      authority: m.authority || {
+        targetUnitPrice: m.counterOfferPolicy?.targetUnitPrice || Math.round(m.maxBudget / m.quantity),
+        maxUnitPrice: m.counterOfferPolicy?.maxUnitConcession ? m.counterOfferPolicy.maxUnitConcession : Math.round(m.maxBudget / m.quantity),
+        strictBudgetCap: true,
+        maxDeliveryDays: m.deliveryDeadlineDays,
+        minWarrantyMonths: m.minWarrantyMonths,
+        permittedConcessions: [],
+      },
+      status: m.status || 'mandate_active',
+      createdAt: m.createdAt,
+      updatedAt: m.updatedAt,
+    };
   }
 
   async createNegotiation(
@@ -87,13 +135,41 @@ class NegotiationApiClient {
       this.simMandates.unshift(newMandate);
       return newMandate;
     }
+    const body = {
+      objective: payload.objective,
+      quantity: payload.quantity,
+      currency: 'INR',
+      maxBudget: payload.maxBudget,
+      deliveryDeadlineDays: payload.deliveryDeadlineDays,
+      minWarrantyMonths: payload.minWarrantyMonths,
+      mandatorySpecifications: payload.mandatorySpecs || [],
+      counterOfferPolicy: {
+        targetUnitPrice: payload.authority?.targetUnitPrice,
+        maxUnitConcession: payload.authority?.maxUnitPrice,
+      },
+    };
     const res = await fetch(`${API_BASE_URL}/negotiations`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`Failed to create negotiation: ${res.statusText}`);
-    return res.json();
+    const m = await res.json();
+    return {
+      id: m.id,
+      title: m.title || m.objective || payload.title,
+      objective: m.objective,
+      quantity: m.quantity,
+      currency: m.currency || 'INR',
+      maxBudget: m.maxBudget,
+      deliveryDeadlineDays: m.deliveryDeadlineDays,
+      minWarrantyMonths: m.minWarrantyMonths,
+      mandatorySpecs: m.mandatorySpecifications || payload.mandatorySpecs || [],
+      authority: payload.authority,
+      status: m.status || 'mandate_active',
+      createdAt: m.createdAt,
+      updatedAt: m.updatedAt,
+    };
   }
 
   // --- 2. SESSIONS & VOICE TOKENS ---
@@ -104,7 +180,19 @@ class NegotiationApiClient {
     }
     const res = await fetch(`${API_BASE_URL}/negotiations/${negotiationId}/sessions`);
     if (!res.ok) throw new Error(`Failed to fetch sessions: ${res.statusText}`);
-    return res.json();
+    const raw = await res.json();
+    return raw.map((s: any) => ({
+      id: s.id,
+      negotiationId: s.negotiationId,
+      merchantName: s.merchantName,
+      merchantRepName: s.merchantRepName || s.merchantRole || 'Representative',
+      roomId: s.roomId,
+      status: s.status,
+      startedAt: s.startedAt,
+      endedAt: s.endedAt,
+      agentDisclosureCompleted: Boolean(s.agentDisclosureCompleted ?? true),
+      recordingConsentObtained: Boolean(s.recordingConsentObtained ?? true),
+    }));
   }
 
   async createSession(
@@ -130,24 +218,36 @@ class NegotiationApiClient {
     const res = await fetch(`${API_BASE_URL}/negotiations/${negotiationId}/sessions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ merchantName, merchantRepName }),
+      body: JSON.stringify({ merchantName, merchantRole: merchantRepName || 'sales_representative' }),
     });
     if (!res.ok) throw new Error(`Failed to create session: ${res.statusText}`);
-    return res.json();
+    const s = await res.json();
+    return {
+      id: s.id,
+      negotiationId: s.negotiationId,
+      merchantName: s.merchantName,
+      merchantRepName: s.merchantRepName || s.merchantRole || merchantRepName || 'Representative',
+      roomId: s.roomId,
+      status: s.status,
+      startedAt: s.startedAt,
+      endedAt: s.endedAt,
+      agentDisclosureCompleted: true,
+      recordingConsentObtained: true,
+    };
   }
 
-  async getRoomToken(sessionId: string, identity: string): Promise<{ token: string; url: string }> {
+  async getRoomToken(sessionId: string, identity: string): Promise<{ token: string; url: string; isLiveConfigured?: boolean }> {
     if (this.mode === 'simulation') {
-      // Return simulated room credentials for browser WebRTC testing
       return {
         token: `sim-token-${sessionId}-${identity}`,
         url: 'wss://simulated.livekit.cloud',
+        isLiveConfigured: false,
       };
     }
     const res = await fetch(`${API_BASE_URL}/sessions/${sessionId}/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ identity }),
+      body: JSON.stringify({ identity, role: 'merchant' }),
     });
     if (!res.ok) throw new Error(`Failed to get room token: ${res.statusText}`);
     return res.json();
@@ -161,25 +261,26 @@ class NegotiationApiClient {
     }
     const res = await fetch(`${API_BASE_URL}/negotiations/${negotiationId}/evidence`);
     if (!res.ok) throw new Error(`Failed to fetch evidence: ${res.statusText}`);
-    return res.json();
-  }
-
-  async addEvidence(evidence: Omit<EvidenceItem, 'id'>): Promise<EvidenceItem> {
-    if (this.mode === 'simulation') {
-      const newItem: EvidenceItem = {
-        ...evidence,
-        id: `ev-${Date.now()}`,
+    const raw = await res.json();
+    return raw.map((e: any) => {
+      const termEntries = Object.entries(e.extractedTerms || {});
+      const firstTerm = termEntries[0] || ['general', e.sourceText];
+      return {
+        id: e.id,
+        negotiationId: e.negotiationId,
+        sessionId: e.sessionId,
+        sourceTurnId: e.sourceTurnId || e.id,
+        timestamp: e.timestamp,
+        speaker: e.speaker === 'merchant' ? 'merchant' : e.speaker === 'buyer' ? 'buyer' : 'agent',
+        speakerLabel: e.speaker === 'merchant' ? 'Merchant' : e.speaker === 'buyer' ? 'Buyer' : 'The Negotiator (AI Agent)',
+        transcriptExcerpt: e.sourceText,
+        termKey: (firstTerm[0] as any) || 'price',
+        extractedField: firstTerm[0],
+        extractedValue: String(firstTerm[1]),
+        verificationStatus: e.verificationStatus || 'verified',
+        notes: e.verificationReason,
       };
-      this.simEvidence.unshift(newItem);
-      return newItem;
-    }
-    const res = await fetch(`${API_BASE_URL}/internal/evidence`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(evidence),
     });
-    if (!res.ok) throw new Error(`Failed to record evidence: ${res.statusText}`);
-    return res.json();
   }
 
   // --- 4. OFFERS & POLICY VIOLATIONS ---
@@ -190,7 +291,33 @@ class NegotiationApiClient {
     }
     const res = await fetch(`${API_BASE_URL}/negotiations/${negotiationId}/offers`);
     if (!res.ok) throw new Error(`Failed to fetch offers: ${res.statusText}`);
-    return res.json();
+    const raw = await res.json();
+    return raw.map((o: any) => ({
+      id: o.id,
+      negotiationId: o.negotiationId,
+      sessionId: o.sessionId,
+      merchantName: o.merchantName,
+      revision: o.revision || 1,
+      status: o.status || 'proposed',
+      terms: {
+        unitPrice: o.terms?.unitPrice ?? 0,
+        quantity: o.terms?.quantity ?? 0,
+        subtotal: o.costBreakdown?.productSubtotal ?? ((o.terms?.unitPrice ?? 0) * (o.terms?.quantity || 1)),
+        taxes: o.costBreakdown?.taxesAmount ?? 0,
+        shippingCost: o.costBreakdown?.isShippingKnown ? o.costBreakdown.shippingFee : null,
+        additionalFees: o.costBreakdown?.additionalFees ?? 0,
+        totalLandedCost: o.costBreakdown?.isComplete ? o.costBreakdown.totalLandedCost : null,
+        deliveryDays: o.terms?.deliveryDays ?? null,
+        warrantyMonths: o.terms?.warrantyMonths ?? null,
+        paymentTerms: o.terms?.paymentTerms,
+      },
+      isEligible: o.costBreakdown?.isComplete ?? true,
+      ineligibilityReason: !o.costBreakdown?.isComplete
+        ? `Incomplete terms: ${o.costBreakdown?.missingComponents?.join(', ') || 'missing logistics'}`
+        : undefined,
+      evidenceIds: o.supportingEvidenceIds || [],
+      updatedAt: o.updatedAt || new Date().toISOString(),
+    }));
   }
 
   async listViolations(negotiationId: string): Promise<PolicyViolation[]> {
@@ -199,7 +326,18 @@ class NegotiationApiClient {
     }
     const res = await fetch(`${API_BASE_URL}/negotiations/${negotiationId}/violations`);
     if (!res.ok) throw new Error(`Failed to fetch violations: ${res.statusText}`);
-    return res.json();
+    const raw = await res.json();
+    return raw.map((v: any, idx: number) => ({
+      id: v.id || `vio-${idx}`,
+      negotiationId,
+      sessionId: v.sessionId || 'session',
+      timestamp: v.timestamp || new Date().toISOString(),
+      ruleName: v.rule || v.ruleName || 'Negotiation Policy Rule',
+      attemptedValue: v.attemptedValue ?? 'Exceeded ceiling',
+      limitValue: v.limitValue ?? 'Ceiling',
+      reason: v.message || v.reason || 'Blocked by Negotiation Guard',
+      status: 'blocked_by_guard' as const,
+    }));
   }
 
   // --- 5. RECOMMENDATION & BUYER APPROVAL ---
@@ -211,7 +349,33 @@ class NegotiationApiClient {
     const res = await fetch(`${API_BASE_URL}/negotiations/${negotiationId}/recommendation`);
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`Failed to fetch recommendation: ${res.statusText}`);
-    return res.json();
+    const raw = await res.json();
+    if (!raw || !raw.id) return null;
+    return {
+      id: raw.id,
+      negotiationId: raw.negotiationId,
+      status: raw.status || 'ready_for_review',
+      recommendedOfferId: raw.winnerOfferId || raw.eligibleOffers?.[0]?.offerId || null,
+      recommendedMerchant: raw.winnerMerchantName || raw.eligibleOffers?.[0]?.merchantName || 'Awaiting Shortlist',
+      totalLandedCost: raw.eligibleOffers?.[0]?.totalLandedCost ?? 0,
+      budgetRemaining: raw.eligibleOffers?.[0]?.budgetRemaining ?? 0,
+      eligibleOfferIds: raw.eligibleOffers?.map((o: any) => o.offerId || o.id) || [],
+      excludedOffers: raw.ineligibleOffers?.map((io: any) => ({
+        offerId: io.offerId || io.id,
+        merchantName: io.merchantName,
+        reason: io.reason || io.ineligibilityReason || 'Failed mandatory criteria',
+      })) || [],
+      calculationBreakdown: {
+        formula: raw.formulaExplanation || 'Total Landed Cost = Subtotal + Shipping + Taxes',
+        items: [
+          { label: 'Winning Landed Cost', amount: raw.eligibleOffers?.[0]?.totalLandedCost ?? 0 },
+        ],
+      },
+      reasons: raw.formulaExplanation ? [raw.formulaExplanation] : ['Complies with all mandate budget and delivery criteria.'],
+      supportingEvidenceIds: [],
+      unresolvedConditions: raw.unresolvedConditions || [],
+      buyerReviewAction: raw.buyerReviewAction || null,
+    };
   }
 
   async approveRecommendation(
@@ -240,13 +404,49 @@ class NegotiationApiClient {
       body: JSON.stringify({ reviewedBy, comments }),
     });
     if (!res.ok) throw new Error(`Failed to approve recommendation: ${res.statusText}`);
-    return res.json();
+    const raw = await res.json();
+    return {
+      id: raw.id,
+      negotiationId: raw.negotiationId,
+      status: 'reviewed',
+      recommendedOfferId: raw.winnerOfferId || raw.eligibleOffers?.[0]?.offerId || null,
+      recommendedMerchant: raw.winnerMerchantName || raw.eligibleOffers?.[0]?.merchantName || 'Awaiting Shortlist',
+      totalLandedCost: raw.eligibleOffers?.[0]?.totalLandedCost ?? 0,
+      budgetRemaining: raw.eligibleOffers?.[0]?.budgetRemaining ?? 0,
+      eligibleOfferIds: raw.eligibleOffers?.map((o: any) => o.offerId || o.id) || [],
+      excludedOffers: raw.ineligibleOffers || [],
+      calculationBreakdown: {
+        formula: raw.formulaExplanation || 'Total Landed Cost = Subtotal + Shipping + Taxes',
+        items: [
+          { label: 'Winning Landed Cost', amount: raw.eligibleOffers?.[0]?.totalLandedCost ?? 0 },
+        ],
+      },
+      reasons: raw.formulaExplanation ? [raw.formulaExplanation] : ['Complies with all mandate budget and delivery criteria.'],
+      supportingEvidenceIds: [],
+      unresolvedConditions: raw.unresolvedConditions || [],
+      buyerReviewAction: raw.buyerReviewAction || {
+        reviewedBy,
+        approvedAt: new Date().toISOString(),
+        comments,
+      },
+    };
   }
 
   // --- 6. TRANSCRIPTS ---
 
   getTranscriptTurns(sessionId: string): TranscriptTurn[] {
-    return this.simTranscripts[sessionId] || [];
+    if (this.mode === 'simulation') {
+      return this.simTranscripts[sessionId] || [];
+    }
+    // In live mode, return strictly recorded live turns (never fake default turns)
+    return this.liveTranscripts[sessionId] || [];
+  }
+
+  addLiveTranscriptTurn(sessionId: string, turn: TranscriptTurn): void {
+    if (!this.liveTranscripts[sessionId]) {
+      this.liveTranscripts[sessionId] = [];
+    }
+    this.liveTranscripts[sessionId].push(turn);
   }
 }
 

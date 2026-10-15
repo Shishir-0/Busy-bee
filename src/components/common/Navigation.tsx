@@ -33,13 +33,21 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onSelectTab 
     activeMandate,
     mandates,
     setActiveMandate,
+    activeSession,
     refreshData,
     isLoading,
   } = useNegotiation();
 
+  const isSessionReallyActive = Boolean(activeSession && activeSession.status === 'active');
+
   const navItems: Array<{ id: ActiveTab; label: string; icon: React.ElementType; badge?: string | number }> = [
     { id: 'command-centre', label: 'Command Centre', icon: Layers },
-    { id: 'session', label: 'Active Session', icon: Radio, badge: 'Live' },
+    {
+      id: 'session',
+      label: 'Active Session',
+      icon: Radio,
+      badge: isSessionReallyActive ? (mode === 'live' ? 'Live' : 'Demo') : undefined,
+    },
     { id: 'evidence', label: 'Evidence Ledger', icon: BookOpen },
     { id: 'offers', label: 'Offer Comparison', icon: GitCompare },
     { id: 'recommendation', label: 'Deal Decision', icon: Award },
@@ -51,12 +59,14 @@ export const Navigation: React.FC<NavigationProps> = ({ currentTab, onSelectTab 
       {/* Top Banner: Verification & Integrity Bar */}
       <div className="bg-slate-900 text-slate-200 text-xs py-1.5 px-4 sm:px-6 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800">
         <div className="flex items-center gap-2">
-          <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span className={`inline-block w-2 h-2 rounded-full ${mode === 'live' ? 'bg-blue-400' : 'bg-emerald-400'} animate-pulse`}></span>
           <span className="font-medium tracking-wide">THE NEGOTIATOR</span>
           <span className="text-slate-400">• Proof-First Procurement AI</span>
           <span className="hidden md:inline-block text-slate-500">|</span>
           <span className="hidden md:inline-block text-slate-400 font-mono text-[11px]">
-            Browser WebRTC Engine (Simulated Environment • No PSTN Outbound)
+            {mode === 'live'
+              ? 'LIVE BACKEND API • Express & MongoDB (No PSTN Outbound)'
+              : 'SIMULATION / DEMO DATA • Scenario Replay (No PSTN Outbound)'}
           </span>
         </div>
 

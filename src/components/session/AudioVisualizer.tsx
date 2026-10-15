@@ -6,6 +6,8 @@ interface AudioVisualizerProps {
   onToggleMute: () => void;
   activeSpeaker: 'agent' | 'merchant' | 'idle';
   isConnected: boolean;
+  isLiveVoice?: boolean;
+  connectionNotice?: string | null;
 }
 
 export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
@@ -13,6 +15,8 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
   onToggleMute,
   activeSpeaker,
   isConnected,
+  isLiveVoice = false,
+  connectionNotice,
 }) => {
   return (
     <div className="flex flex-wrap items-center justify-between gap-4 p-3 bg-slate-900 text-white rounded-lg border border-slate-800 shadow-xs">
@@ -43,17 +47,21 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
                 ? 'AI Agent Speaking'
                 : activeSpeaker === 'merchant'
                 ? 'Merchant Speaking'
-                : isConnected
-                ? 'Listening to Channel...'
-                : 'Session Idle'}
+                : isConnected && isLiveVoice
+                ? 'Microphone Connected • Listening to Channel'
+                : isConnected && !isLiveVoice
+                ? 'Browser Audio Channel Ready (Demo Mode)'
+                : 'Audio Channel Offline (Session Idle)'}
             </span>
             {isConnected && (
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <span className={`w-2 h-2 rounded-full ${isLiveVoice ? 'bg-emerald-400' : 'bg-blue-400'} animate-ping`} />
             )}
           </div>
           <div className="text-[11px] text-slate-400 flex items-center gap-1.5 font-mono">
             <Volume2 className="w-3 h-3 text-slate-500" />
-            <span>WebRTC Audio Stream • 48kHz Stereo</span>
+            <span>
+              {isLiveVoice ? 'LiveKit Cloud WebRTC Audio • 48kHz' : 'Browser WebRTC Audio Stream • Local Engine'}
+            </span>
           </div>
         </div>
 
@@ -71,17 +79,24 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
 
       {/* Mic and Voice Controls */}
       <div className="flex items-center gap-2">
+        {connectionNotice && (
+          <span className="text-[10px] text-amber-400 bg-amber-950/40 border border-amber-800/60 px-2 py-1 rounded max-w-xs truncate hidden sm:inline-block">
+            {connectionNotice}
+          </span>
+        )}
         <button
           onClick={onToggleMute}
           disabled={!isConnected}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors shadow-xs ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
             isMuted
               ? 'bg-rose-600 hover:bg-rose-700 text-white'
-              : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+              : isConnected
+              ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+              : 'bg-slate-800 text-slate-500 border border-slate-700'
           }`}
         >
-          {isMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5 text-emerald-400" />}
-          <span>{isMuted ? 'Microphone Muted' : 'Microphone Live'}</span>
+          {isMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+          <span>{isMuted ? 'Muted' : 'Mute Mic'}</span>
         </button>
       </div>
     </div>

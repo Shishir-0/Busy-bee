@@ -12,12 +12,12 @@ import {
 } from 'lucide-react';
 
 export const MerchantBrowserPage: React.FC = () => {
-  const { activeSession, simulateNewTurn } = useNegotiation();
+  const { activeSession, simulateNewTurn, mode } = useNegotiation();
 
   const [isMicActive, setIsMicActive] = useState<boolean>(true);
   const [spokenInput, setSpokenInput] = useState<string>('');
 
-  const merchantName = activeSession?.merchantName || 'Sterling Commercial Furniture';
+  const merchantName = activeSession?.merchantName || (mode === 'simulation' ? 'Sterling Commercial Furniture' : 'No Active Merchant');
 
   const handleSendSpokenTurn = (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,14 +51,18 @@ export const MerchantBrowserPage: React.FC = () => {
               <Store className="w-4 h-4" />
             </div>
             <span className="text-xs font-mono font-semibold text-blue-700 uppercase tracking-wider">
-              Merchant Participant Portal (Browser Simulation)
+              {mode === 'simulation' ? 'Merchant Participant Portal (Browser Simulation)' : 'Merchant Participant Portal (Live Audio)'}
             </span>
           </div>
           <h1 className="text-xl font-bold tracking-tight text-ink-primary">
             {merchantName}
           </h1>
           <p className="text-xs text-ink-muted">
-            Role: Authorized Vendor Sales Representative • WebRTC Audio Channel Live
+            {activeSession
+              ? `Role: Authorized Vendor Sales Representative • Room: ${activeSession.roomId}`
+              : mode === 'simulation'
+              ? 'Role: Authorized Vendor Sales Representative • Simulated Audio Channel'
+              : 'No Active Negotiation Session • Connect a Live Session from Command Centre'}
           </p>
         </div>
 

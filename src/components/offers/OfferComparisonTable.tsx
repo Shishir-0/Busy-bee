@@ -2,7 +2,7 @@ import React from 'react';
 import { MerchantOffer, NegotiationMandate } from '../../types/negotiation';
 import { StatusBadge } from '../common/StatusBadge';
 import { formatCurrency } from '../../utils/formatters';
-import { CheckCircle2, XCircle, ArrowRight } from 'lucide-react';
+import { CheckCircle2, XCircle, ArrowRight, GitCompare } from 'lucide-react';
 
 interface OfferComparisonTableProps {
   offers: MerchantOffer[];
@@ -15,6 +15,20 @@ export const OfferComparisonTable: React.FC<OfferComparisonTableProps> = ({
   mandate,
   onSelectOffer,
 }) => {
+  if (offers.length === 0) {
+    return (
+      <div className="bg-white rounded-xl border border-canvas-border shadow-xs p-12 text-center max-w-lg mx-auto space-y-3">
+        <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center mx-auto">
+          <GitCompare className="w-6 h-6" />
+        </div>
+        <h3 className="text-sm font-semibold text-ink-primary">No Merchant Offers Recorded Yet</h3>
+        <p className="text-xs text-ink-muted leading-relaxed">
+          As negotiations proceed and vendor quotes are captured, offers will appear here for automated landed-cost arithmetic and policy compliance evaluation.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* Comparison Grid */}
