@@ -1,46 +1,29 @@
 {
-  "name": "busy-bee",
-  "version": "1.0.0",
-  "description": "The Negotiator: Proof-First Procurement AI Platform",
+  "name": "the-negotiator-frontend",
   "private": true,
+  "version": "1.0.0",
   "type": "module",
-  "workspaces": [
-    "packages/*",
-    "apps/*"
-  ],
   "scripts": {
-    "start": "node --import tsx apps/server/src/server.ts",
-    "dev": "tsx watch apps/server/src/server.ts",
-    "build": "tsc -b",
-    "test": "node --import tsx --test apps/server/tests/**/*.test.ts",
-    "test:server": "node --import tsx --test apps/server/tests/**/*.test.ts",
-    "test:agent": "npm run test --workspace=@busy-bee/agent",
-    "test:policy": "node --import tsx --test apps/server/tests/policy.test.ts",
-    "test:cost": "node --import tsx --test apps/server/tests/cost.test.ts",
-    "test:evidence": "node --import tsx --test apps/server/tests/evidence.test.ts",
-    "test:api": "node --import tsx --test apps/server/tests/api.test.ts",
-    "agent:start": "npm run start --workspace=@busy-bee/agent",
-    "agent:replay": "npm run start:replay --workspace=@busy-bee/agent",
-    "agent:text": "npm run start:text --workspace=@busy-bee/agent"
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
   },
   "dependencies": {
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "helmet": "^8.0.0",
-    "livekit-server-sdk": "^2.10.1",
-    "mongoose": "^8.9.5",
-    "uuid": "^11.0.5",
-    "zod": "^3.24.1"
+    "lucide-react": "^1.16.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.17",
-    "@types/express": "^5.0.0",
-    "@types/node": "^22.10.7",
-    "@types/supertest": "^6.0.2",
-    "@types/uuid": "^10.0.0",
-    "supertest": "^7.0.0",
-    "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+    "@types/node": "^22.5.4",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.11",
+    "typescript": "^5.5.3",
+    "vite": "^5.4.2",
+    "vitest": "^2.1.1"
   }
 }
