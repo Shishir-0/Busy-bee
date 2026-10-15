@@ -1,0 +1,27 @@
+{
+  "name": "busy-beeee",
+  "version": "1.0.0",
+  "description": "The Negotiator: Proof-First Procurement AI Engine",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "test": "npm run test --workspace=@busy-bee/agent",
+    "build": "npm run build --workspaces",
+    "agent:start": "npm run start --workspace=@busy-bee/agent",
+    "agent:replay": "npm run start:replay --workspace=@busy-bee/agent",
+    "agent:text": "npm run start:text --workspace=@busy-bee/agent"
+  },
+  "keywords": [
+    "negotiator",
+    "procurement",
+    "voice-agent",
+    "openai-realtime",
+    "livekit",
+    "hackathon"
+  ],
+  "author": "CHAOS Hackathon - Team Busy-bee",
+  "license": "ISC"
+}
