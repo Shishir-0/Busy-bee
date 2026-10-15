@@ -125,10 +125,15 @@ export interface MerchantSession {
 }
 
 export const LiveKitTokenRequestSchema = z.object({
-  participantIdentity: z.string().trim().min(1, 'Participant identity is required'),
+  participantIdentity: z.string().trim().min(1).optional(),
+  identity: z.string().trim().min(1).optional(),
   participantName: z.string().trim().optional(),
-  role: z.enum(SPEAKER_ROLES),
-});
+  role: z.enum(SPEAKER_ROLES).default('merchant'),
+}).transform((data) => ({
+  participantIdentity: data.participantIdentity || data.identity || `user-${Date.now()}`,
+  participantName: data.participantName,
+  role: data.role || 'merchant',
+}));
 
 export type LiveKitTokenRequest = z.infer<typeof LiveKitTokenRequestSchema>;
 

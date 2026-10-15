@@ -32,11 +32,15 @@ async function main() {
     });
     const preflight = worker.validateCredentials();
     if (!preflight.ready) {
-      console.warn(`[VOICE GATE] LiveKit/OpenAI credentials not detected in .env.`);
+      console.warn(`[VOICE GATE] LiveKit/OpenAI credentials not configured in .env: ${preflight.missingKeys.join(", ")}`);
       console.log(`[VOICE GATE] Executing Fallback B (deterministic replay) instead...\n`);
       await runReplayDemo(backendClient, mockBackend);
     } else {
-      await worker.startWorker();
+      const startRes = await worker.startWorker();
+      if (!startRes.success) {
+        console.warn(`[VOICE GATE] Live worker connection failed (${startRes.reason}). Falling back to replay demo...\n`);
+        await runReplayDemo(backendClient, mockBackend);
+      }
     }
   } else {
     // Default or replay mode

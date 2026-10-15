@@ -17,6 +17,9 @@ import {
 } from 'lucide-react';
 import { ActiveTab } from '../components/common/Navigation';
 
+import { livekitVoiceService } from '../services/livekitVoiceService';
+import { apiClient } from '../services/api';
+
 interface ActiveSessionPageProps {
   onNavigate: (tab: ActiveTab) => void;
 }
@@ -24,6 +27,7 @@ interface ActiveSessionPageProps {
 export const ActiveSessionPage: React.FC<ActiveSessionPageProps> = ({ onNavigate }) => {
   const {
     activeMandate,
+    mandates,
     activeSession,
     sessions,
     setActiveSession,
@@ -39,6 +43,8 @@ export const ActiveSessionPage: React.FC<ActiveSessionPageProps> = ({ onNavigate
   const [customSpeech, setCustomSpeech] = useState<string>('');
   const [customField, setCustomField] = useState<string>('Unit Price');
   const [customValue, setCustomValue] = useState<string>('₹2,800 / unit');
+  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
+  const [connectionNotice, setConnectionNotice] = useState<string | null>(null);
 
   // Session timer
   useEffect(() => {
@@ -48,16 +54,75 @@ export const ActiveSessionPage: React.FC<ActiveSessionPageProps> = ({ onNavigate
     return () => clearInterval(timer);
   }, []);
 
-  if (!activeMandate) {
-    return (
-      <div className="text-center py-12 text-xs text-ink-muted">
-        No active negotiation mandate. Please select or create one first.
-      </div>
-    );
-  }
-
+  const currentMandate = activeMandate || mandates[0] || {
+    id: 'placeholder-mandate',
+    title: 'Standard Procurement Mandate',
+    category: 'Commercial Procurement',
+    targetUnitCount: 50,
+    targetUnitPrice: 2600,
+    maxUnitPrice: 3000,
+    maxBudget: 150000,
+    maxDeliveryDays: 14,
+    shippingIncludedRequired: true,
+    warrantyMonthsRequired: 12,
+    status: 'active' as const,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
   const currentSession = activeSession || sessions[0];
   const currentOffer = offers.find((o) => o.sessionId === currentSession?.id) || offers[0];
+
+  // Initialize WebRTC Voice Connection
+  useEffect(() => {
+    if (!currentSession?.id) return;
+    let isCancelled = false;
+
+    async function initVoiceChannel() {
+      try {
+        setConnectionStatus('connecting');
+        const tokenRes = await apiClient.getRoomToken(currentSession.id, 'buyer-web-user');
+        if (isCancelled) return;
+
+        await livekitVoiceService.connect({
+          url: tokenRes.url,
+          token: tokenRes.token,
+          isLiveConfigured: (tokenRes as any).isLiveConfigured,
+          onActiveSpeakerChange: (spk) => {
+            if (!isCancelled) setActiveSpeaker(spk);
+          },
+          onConnectionStatusChange: (status, msg) => {
+            if (!isCancelled) {
+              setConnectionStatus(status);
+              if (msg) setConnectionNotice(msg);
+            }
+          },
+          onTranscriptReceived: (turn) => {
+            if (!isCancelled) {
+              simulateNewTurn(turn.speaker, turn.text);
+            }
+          },
+        });
+      } catch (err: any) {
+        if (!isCancelled) {
+          setConnectionStatus('error');
+          setConnectionNotice(err?.message || 'Failed to initialize voice channel');
+        }
+      }
+    }
+
+    initVoiceChannel();
+
+    return () => {
+      isCancelled = true;
+      livekitVoiceService.disconnect();
+    };
+  }, [currentSession?.id]);
+
+  const handleToggleMute = () => {
+    const next = !isMuted;
+    setIsMuted(next);
+    livekitVoiceService.setMuted(next);
+  };
 
   const handleSimulateStandardQuote = () => {
     setActiveSpeaker('merchant');
@@ -191,6 +256,19 @@ export const ActiveSessionPage: React.FC<ActiveSessionPageProps> = ({ onNavigate
         </div>
       </div>
 
+      {/* WebRTC Live Connection Diagnostics Banner */}
+      {connectionNotice && (
+        <div className="bg-slate-50 border border-slate-200 text-slate-700 rounded-lg p-2.5 text-xs flex items-center justify-between shadow-2xs">
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${connectionStatus === 'connected' ? 'bg-emerald-500' : connectionStatus === 'connecting' ? 'bg-amber-500 animate-ping' : 'bg-rose-500'}`} />
+            <span className="font-mono text-[11px]">{connectionNotice}</span>
+          </div>
+          <span className="text-[10px] font-mono uppercase bg-white border border-slate-200 px-1.5 py-0.5 rounded font-semibold text-slate-600">
+            {connectionStatus}
+          </span>
+        </div>
+      )}
+
       {/* Main Workspace Split: 2 Columns */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column (7 cols): Audio Stream & Live Transcript */}
@@ -198,9 +276,9 @@ export const ActiveSessionPage: React.FC<ActiveSessionPageProps> = ({ onNavigate
           {/* Audio Visualizer & Mute Controls */}
           <AudioVisualizer
             isMuted={isMuted}
-            onToggleMute={() => setIsMuted(!isMuted)}
+            onToggleMute={handleToggleMute}
             activeSpeaker={activeSpeaker}
-            isConnected={true}
+            isConnected={connectionStatus === 'connected' || connectionStatus === 'connecting'}
           />
 
           {/* Chronological Transcript Component */}
@@ -295,7 +373,7 @@ export const ActiveSessionPage: React.FC<ActiveSessionPageProps> = ({ onNavigate
         <div className="lg:col-span-5 space-y-4">
           {/* Signature Negotiation Guard Panel */}
           <NegotiationGuardPanel
-            mandate={activeMandate}
+            mandate={currentMandate}
             currentTerms={currentOffer?.terms}
             violations={violations}
           />

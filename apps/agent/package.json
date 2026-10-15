@@ -14,13 +14,15 @@
   },
   "dependencies": {
     "@busy-bee/contracts": "file:../../packages/contracts",
-    "zod": "^3.24.2",
-    "dotenv": "^16.4.7"
+    "@livekit/agents": "^1.9.3",
+    "@livekit/agents-plugin-openai": "^1.9.3",
+    "dotenv": "^16.4.7",
+    "zod": "^3.24.2"
   },
   "devDependencies": {
-    "typescript": "^5.8.2",
+    "@types/node": "^22.13.9",
     "tsx": "^4.19.3",
-    "vitest": "^3.0.8",
-    "@types/node": "^22.13.9"
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8"
   }
 }

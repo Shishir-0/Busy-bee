@@ -7,11 +7,20 @@ export async function createLiveKitToken(
   participantIdentity: string,
   participantName?: string,
   role: SpeakerRole = 'merchant'
-): Promise<LiveKitTokenResponse> {
+): Promise<LiveKitTokenResponse & { isLiveConfigured: boolean }> {
   const expiresInSeconds = 3600; // 1 hour short-lived token
 
-  if (env.LIVEKIT_API_KEY && env.LIVEKIT_API_SECRET) {
-    const at = new AccessToken(env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET, {
+  const isLiveConfigured = Boolean(
+    env.LIVEKIT_API_KEY &&
+    env.LIVEKIT_API_SECRET &&
+    !env.LIVEKIT_API_KEY.includes('replace_with') &&
+    !env.LIVEKIT_API_SECRET.includes('replace_with') &&
+    env.LIVEKIT_URL &&
+    !env.LIVEKIT_URL.includes('your-project')
+  );
+
+  if (isLiveConfigured) {
+    const at = new AccessToken(env.LIVEKIT_API_KEY!, env.LIVEKIT_API_SECRET!, {
       identity: participantIdentity,
       name: participantName || participantIdentity,
       ttl: expiresInSeconds,
@@ -33,10 +42,11 @@ export async function createLiveKitToken(
       roomName,
       participantIdentity,
       expiresInSeconds,
+      isLiveConfigured: true,
     };
   }
 
-  // Graceful simulation token when LiveKit keys are not set in environment
+  // Graceful simulation token when LiveKit keys are placeholders or not configured
   const mockToken = `sim_jwt_${Buffer.from(
     JSON.stringify({
       room: roomName,
@@ -48,9 +58,10 @@ export async function createLiveKitToken(
 
   return {
     token: mockToken,
-    url: env.LIVEKIT_URL || 'ws://localhost:7880',
+    url: env.LIVEKIT_URL || 'wss://simulated.livekit.cloud',
     roomName,
     participantIdentity,
     expiresInSeconds,
+    isLiveConfigured: false,
   };
 }
