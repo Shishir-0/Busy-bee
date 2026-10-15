@@ -323,22 +323,6 @@ Busy-bee follows a structured negotiation workflow that connects conversational 
 
 This design separates conversational interaction from structured business operations, making the procurement workflow easier to inspect, maintain, and extend.
 
-## Why Busy-bee?
-
-Most conversational AI systems focus on generating responses. Busy-bee focuses on connecting those responses to a controlled business workflow.
-
-Its design combines five important principles:
-
-**Evidence-driven decisions.** Commercial information should be traceable to its supporting source.
-
-**Deterministic business rules.** Important negotiation constraints should be represented as explicit application logic rather than relying entirely on conversational instructions.
-
-**Total commercial value.** Supplier evaluation should consider the broader offer and its associated costs, not simply the headline quotation.
-
-**Explainable recommendations.** Procurement decisions should have a clear rationale that a human reviewer can examine.
-
-**Human-supervised purchasing.** Recommendations and approval actions remain distinct stages of the decision-making process.
-
 ## Demonstration Scenario
 
 The repository includes a replay-based negotiation workflow featuring two sample merchants: Apex Supplies and Bharat Ergonomics.
