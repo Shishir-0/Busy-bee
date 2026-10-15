@@ -1,27 +1,46 @@
 {
-  "name": "busy-beeee",
+  "name": "busy-bee",
   "version": "1.0.0",
-  "description": "The Negotiator: Proof-First Procurement AI Engine",
+  "description": "The Negotiator: Proof-First Procurement AI Platform",
   "private": true,
+  "type": "module",
   "workspaces": [
     "packages/*",
     "apps/*"
   ],
   "scripts": {
-    "test": "npm run test --workspace=@busy-bee/agent",
-    "build": "npm run build --workspaces",
+    "start": "node --import tsx apps/server/src/server.ts",
+    "dev": "tsx watch apps/server/src/server.ts",
+    "build": "tsc -b",
+    "test": "node --import tsx --test apps/server/tests/**/*.test.ts",
+    "test:server": "node --import tsx --test apps/server/tests/**/*.test.ts",
+    "test:agent": "npm run test --workspace=@busy-bee/agent",
+    "test:policy": "node --import tsx --test apps/server/tests/policy.test.ts",
+    "test:cost": "node --import tsx --test apps/server/tests/cost.test.ts",
+    "test:evidence": "node --import tsx --test apps/server/tests/evidence.test.ts",
+    "test:api": "node --import tsx --test apps/server/tests/api.test.ts",
     "agent:start": "npm run start --workspace=@busy-bee/agent",
     "agent:replay": "npm run start:replay --workspace=@busy-bee/agent",
     "agent:text": "npm run start:text --workspace=@busy-bee/agent"
   },
-  "keywords": [
-    "negotiator",
-    "procurement",
-    "voice-agent",
-    "openai-realtime",
-    "livekit",
-    "hackathon"
-  ],
-  "author": "CHAOS Hackathon - Team Busy-bee",
-  "license": "ISC"
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "livekit-server-sdk": "^2.10.1",
+    "mongoose": "^8.9.5",
+    "uuid": "^11.0.5",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.7",
+    "@types/supertest": "^6.0.2",
+    "@types/uuid": "^10.0.0",
+    "supertest": "^7.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
 }

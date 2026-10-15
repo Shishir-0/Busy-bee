@@ -1,0 +1,1 @@
+{"version":3,"file":"evidenceValidator.d.ts","sourceRoot":"","sources":["evidenceValidator.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EACV,qBAAqB,EACrB,cAAc,EACf,MAAM,8CAA8C,CAAC;AAEtD,MAAM,WAAW,wBAAwB;IACvC,OAAO,EAAE,OAAO,CAAC;IACjB,gBAAgB,EAAE,cAAc,CAAC;IACjC,MAAM,EAAE,MAAM,CAAC;CAChB;AAED;;;GAGG;AACH,wBAAgB,qBAAqB,CAAC,KAAK,EAAE,qBAAqB,GAAG,wBAAwB,CA6F5F"}
