@@ -189,6 +189,74 @@ export async function calculateRecommendation(req: Request, res: Response, next:
   }
 }
 
+export async function listSessions(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const negotiationId = getParam(req.params.id);
+    const repos = getRepositories();
+    const sessions = await repos.sessions.findByNegotiationId(negotiationId);
+    res.json(sessions);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getNegotiationViolations(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const negotiationId = getParam(req.params.id);
+    const repos = getRepositories();
+    const offers = await repos.offers.findByNegotiationId(negotiationId);
+    const violations = offers.flatMap((o) => (o as any).policyViolations || []);
+    res.json(violations);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getRecommendation(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const negotiationId = getParam(req.params.id);
+    const repos = getRepositories();
+    const recommendation = await repos.recommendations.findByNegotiationId(negotiationId);
+    if (!recommendation) {
+      res.status(404).json({ error: { code: 'NOT_FOUND', message: 'No recommendation found' } });
+      return;
+    }
+    res.json(recommendation);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function approveRecommendation(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const negotiationId = getParam(req.params.id);
+    const { reviewedBy, comments } = req.body || {};
+    const repos = getRepositories();
+    let recommendation = await repos.recommendations.findByNegotiationId(negotiationId);
+    if (!recommendation) {
+      const negotiation = await repos.negotiations.findById(negotiationId);
+      if (!negotiation) {
+        res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Negotiation not found' } });
+        return;
+      }
+      const offers = await repos.offers.findByNegotiationId(negotiationId);
+      const evidence = await repos.evidence.findByNegotiationId(negotiationId);
+      recommendation = evaluateRecommendation(negotiation, offers, evidence);
+    }
+    recommendation.status = 'approved';
+    (recommendation as any).buyerReviewAction = {
+      reviewedBy: reviewedBy || 'Authorized Buyer',
+      approvedAt: new Date().toISOString(),
+      comments: comments || 'Approved terms',
+    };
+    await repos.recommendations.save(recommendation);
+    eventBus.publish('recommendation.approved', negotiationId, recommendation);
+    res.json(recommendation);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export function streamNegotiationEvents(req: Request, res: Response): void {
   const negotiationId = getParam(req.params.id);
 

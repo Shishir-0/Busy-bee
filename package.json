@@ -1,28 +1,61 @@
 {
-  "name": "the-negotiator-frontend",
-  "private": true,
+  "name": "busy-bee",
   "version": "1.0.0",
+  "description": "The Negotiator: Proof-First Procurement AI Platform",
+  "private": true,
   "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "dev": "vite",
+    "dev:frontend": "vite",
+    "dev:server": "tsx watch apps/server/src/server.ts",
+    "start": "node --import tsx apps/server/src/server.ts",
+    "start:server": "node --import tsx apps/server/src/server.ts",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "node --import tsx --test apps/server/tests/**/*.test.ts",
+    "test:frontend": "vitest run",
+    "test:server": "node --import tsx --test apps/server/tests/**/*.test.ts",
+    "test:agent": "npm run test --workspace=@busy-bee/agent",
+    "test:policy": "node --import tsx --test apps/server/tests/policy.test.ts",
+    "test:cost": "node --import tsx --test apps/server/tests/cost.test.ts",
+    "test:evidence": "node --import tsx --test apps/server/tests/evidence.test.ts",
+    "test:api": "node --import tsx --test apps/server/tests/api.test.ts",
+    "agent:start": "npm run start --workspace=@busy-bee/agent",
+    "agent:replay": "npm run start:replay --workspace=@busy-bee/agent",
+    "agent:text": "npm run start:text --workspace=@busy-bee/agent"
   },
   "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "livekit-server-sdk": "^2.10.1",
     "lucide-react": "^1.16.0",
+    "mongoose": "^8.9.5",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "uuid": "^11.0.5",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@types/node": "^22.5.4",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.7",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
+    "@types/supertest": "^6.0.2",
+    "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.47",
+    "supertest": "^7.0.0",
     "tailwindcss": "^3.4.11",
-    "typescript": "^5.5.3",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
     "vite": "^5.4.2",
     "vitest": "^2.1.1"
   }

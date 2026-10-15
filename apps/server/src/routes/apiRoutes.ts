@@ -4,10 +4,14 @@ import {
   listNegotiations,
   getNegotiation,
   createSession,
+  listSessions,
   issueSessionToken,
   getNegotiationOffers,
   getNegotiationEvidence,
+  getNegotiationViolations,
   calculateRecommendation,
+  getRecommendation,
+  approveRecommendation,
   streamNegotiationEvents,
 } from '../controllers/negotiationController.js';
 import {
@@ -38,10 +42,14 @@ apiRouter.get('/health', (_req, res) => {
 apiRouter.post('/negotiations', createNegotiation);
 apiRouter.get('/negotiations', listNegotiations);
 apiRouter.get('/negotiations/:id', getNegotiation);
+apiRouter.get('/negotiations/:id/sessions', listSessions);
 apiRouter.post('/negotiations/:id/sessions', createSession);
 apiRouter.get('/negotiations/:id/offers', getNegotiationOffers);
 apiRouter.get('/negotiations/:id/evidence', getNegotiationEvidence);
+apiRouter.get('/negotiations/:id/violations', getNegotiationViolations);
+apiRouter.get('/negotiations/:id/recommendation', getRecommendation);
 apiRouter.post('/negotiations/:id/recommendation', calculateRecommendation);
+apiRouter.post('/negotiations/:id/recommendation/approve', approveRecommendation);
 apiRouter.get('/negotiations/:id/events', streamNegotiationEvents);
 
 // Session Endpoints
